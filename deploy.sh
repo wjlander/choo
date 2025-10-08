@@ -221,10 +221,10 @@ copy_application() {
 # Function to install dependencies
 install_dependencies() {
     print_info "Installing application dependencies..."
-    
+
     cd $APP_DIR
-    sudo -u $APP_USER npm ci --production
-    
+    sudo -u $APP_USER npm ci
+
     print_success "Dependencies installed"
 }
 
