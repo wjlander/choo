@@ -385,49 +385,35 @@ start_application() {
     print_success "Application started"
 }
 
-# Function to configure Nginx
+# Function to configure Nginx (HTTP only, before SSL)
 configure_nginx() {
     print_info "Configuring Nginx..."
-    
-    # Create Nginx configuration
+
+    # Create Nginx configuration (HTTP only)
     cat > /etc/nginx/sites-available/$APP_NAME << EOF
-# HTTP - Redirect to HTTPS
+# HTTP Configuration
 server {
     listen 80;
     listen [::]:80;
-    server_name $DOMAIN *.$DOMAIN;
-    
+    server_name $DOMAIN;
+
+    # ACME challenge for Let's Encrypt
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
-    
-    location / {
-        return 301 https://\$host\$request_uri;
-    }
-}
 
-# HTTPS
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $DOMAIN *.$DOMAIN;
-    
-    # SSL Configuration (will be updated by Certbot)
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
-    
+
     # Gzip compression
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json application/javascript;
-    
+
     # Proxy to Node.js application
     location / {
         proxy_pass http://localhost:$PORT;
@@ -440,7 +426,7 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
     }
-    
+
     # Health check endpoint
     location /health {
         proxy_pass http://localhost:$PORT/health;
@@ -448,41 +434,61 @@ server {
     }
 }
 EOF
-    
+
     # Enable site
     ln -sf /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/
-    
+
     # Remove default site
     rm -f /etc/nginx/sites-enabled/default
-    
+
     # Test Nginx configuration
     nginx -t
-    
+
     # Reload Nginx
     systemctl reload nginx
-    
-    print_success "Nginx configured"
+
+    print_success "Nginx configured (HTTP)"
 }
 
 # Function to obtain SSL certificate
 obtain_ssl() {
-    print_info "Obtaining SSL certificate..."
-    
+    print_info "Setting up SSL certificate..."
+
+    echo ""
+    read -p "Do you want to set up SSL with Let's Encrypt? (y/n): " setup_ssl
+
+    if [[ "$setup_ssl" != "y" ]]; then
+        print_warning "Skipping SSL setup. Application will be available via HTTP only."
+        return
+    fi
+
+    # Prompt for email
+    read -p "Enter email address for Let's Encrypt notifications: " EMAIL
+    while [[ -z "$EMAIL" ]]; do
+        print_error "Email is required for Let's Encrypt"
+        read -p "Enter email address: " EMAIL
+    done
+
     # Create directory for ACME challenge
     mkdir -p /var/www/certbot
-    
-    # Obtain certificate
-    certbot --nginx -d $DOMAIN -d "*.$DOMAIN" \
+
+    print_info "Obtaining SSL certificate..."
+
+    # Obtain certificate (without wildcard as it requires DNS challenge)
+    certbot --nginx -d $DOMAIN \
         --non-interactive \
         --agree-tos \
         --email $EMAIL \
         --redirect
-    
-    # Setup auto-renewal
-    systemctl enable certbot.timer
-    systemctl start certbot.timer
-    
-    print_success "SSL certificate obtained and auto-renewal configured"
+
+    if [ $? -eq 0 ]; then
+        # Setup auto-renewal
+        systemctl enable certbot.timer
+        systemctl start certbot.timer
+        print_success "SSL certificate obtained and auto-renewal configured"
+    else
+        print_error "Failed to obtain SSL certificate. Application is still accessible via HTTP."
+    fi
 }
 
 # Function to setup firewall
@@ -528,7 +534,7 @@ if [ -d ".git" ]; then
 fi
 
 # Install dependencies
-sudo -u $APP_USER npm ci --production
+sudo -u $APP_USER npm ci
 
 # Build application
 sudo -u $APP_USER npm run build
@@ -551,7 +557,7 @@ display_completion() {
     echo "Your Choo membership management system is now deployed!"
     echo ""
     echo "Important Information:"
-    echo "  - Application URL: https://$DOMAIN"
+    echo "  - Application URL: http://$DOMAIN (or https:// if SSL was configured)"
     echo "  - Application Directory: $APP_DIR"
     echo "  - Logs Directory: /var/log/$APP_NAME"
     echo "  - Backups Directory: $BACKUP_DIR"
@@ -559,7 +565,7 @@ display_completion() {
     echo "Next Steps:"
     echo "  1. Run database migrations in Supabase dashboard"
     echo "  2. Create your first super admin user"
-    echo "  3. Access your application at https://$DOMAIN"
+    echo "  3. Access your application at http://$DOMAIN"
     echo ""
     echo "Useful Commands:"
     echo "  - View logs: sudo -u $APP_USER pm2 logs $APP_NAME"
