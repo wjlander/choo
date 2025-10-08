@@ -236,24 +236,61 @@ build_application() {
 # Function to configure environment
 configure_environment() {
     print_info "Configuring environment..."
-    
-    if [ ! -f "$APP_DIR/.env" ]; then
-        if [ -f "$APP_DIR/.env.example" ]; then
-            cp $APP_DIR/.env.example $APP_DIR/.env
-            print_warning "Created .env from .env.example"
-            print_warning "Please edit $APP_DIR/.env with your Supabase credentials"
-            print_warning "Press Enter when ready to continue..."
-            read
-        else
-            print_error ".env.example not found"
-            exit 1
+
+    # Check if .env already exists
+    if [ -f "$APP_DIR/.env" ]; then
+        print_warning ".env file already exists"
+        read -p "Do you want to recreate it? (y/n): " recreate
+        if [[ "$recreate" != "y" ]]; then
+            print_info "Keeping existing .env file"
+            chown $APP_USER:$APP_USER $APP_DIR/.env
+            chmod 600 $APP_DIR/.env
+            return
         fi
     fi
-    
+
+    echo ""
+    print_info "=== Environment Configuration ==="
+    echo ""
+    print_info "Please provide the following environment variables:"
+    echo ""
+
+    # Get Supabase URL
+    read -p "Enter VITE_SUPABASE_URL (e.g., https://xxxxx.supabase.co): " SUPABASE_URL
+    while [[ -z "$SUPABASE_URL" ]]; do
+        print_error "Supabase URL is required"
+        read -p "Enter VITE_SUPABASE_URL: " SUPABASE_URL
+    done
+
+    # Get Supabase Anon Key
+    read -p "Enter VITE_SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
+    while [[ -z "$SUPABASE_ANON_KEY" ]]; do
+        print_error "Supabase Anon Key is required"
+        read -p "Enter VITE_SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
+    done
+
+    # Get Resend API Key (optional)
+    read -p "Enter RESEND_API_KEY (optional, press Enter to skip): " RESEND_KEY
+
+    echo ""
+    print_info "Creating .env file..."
+
+    # Create .env file
+    cat > $APP_DIR/.env << EOF
+VITE_SUPABASE_URL=$SUPABASE_URL
+VITE_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+EOF
+
+    # Add Resend API key if provided
+    if [[ ! -z "$RESEND_KEY" ]]; then
+        echo "RESEND_API_KEY=$RESEND_KEY" >> $APP_DIR/.env
+    fi
+
+    # Set proper permissions
     chown $APP_USER:$APP_USER $APP_DIR/.env
     chmod 600 $APP_DIR/.env
-    
-    print_success "Environment configured"
+
+    print_success "Environment file created at $APP_DIR/.env"
 }
 
 # Function to create server.js
@@ -515,10 +552,9 @@ display_completion() {
     echo "  - Backups Directory: $BACKUP_DIR"
     echo ""
     echo "Next Steps:"
-    echo "  1. Edit $APP_DIR/.env with your Supabase credentials"
-    echo "  2. Run database migrations in Supabase dashboard"
-    echo "  3. Create your first super admin user"
-    echo "  4. Access your application at https://$DOMAIN"
+    echo "  1. Run database migrations in Supabase dashboard"
+    echo "  2. Create your first super admin user"
+    echo "  3. Access your application at https://$DOMAIN"
     echo ""
     echo "Useful Commands:"
     echo "  - View logs: sudo -u $APP_USER pm2 logs $APP_NAME"
