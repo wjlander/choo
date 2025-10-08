@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
 
 export interface Organization {
   id: string
@@ -24,39 +23,36 @@ export interface Organization {
 export function useTenant() {
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadOrganization = async () => {
-      try {
-        // For single organization mode, just load the first active organization
-        const { data, error: fetchError } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('is_active', true)
-          .limit(1)
-          .maybeSingle()
-
-        if (fetchError) {
-          console.error('Error loading organization:', fetchError)
-          setError('Failed to load organization')
-        } else if (data) {
-          setOrganization(data)
-        }
-      } catch (err) {
-        console.error('Error loading organization:', err)
-        setError('Failed to load organization')
-      } finally {
-        setLoading(false)
-      }
+    // For single organization mode, use static configuration
+    const staticOrg: Organization = {
+      id: 'single-org',
+      slug: 'choo',
+      name: 'Choo Organization',
+      domain: null,
+      logo_url: null,
+      primary_color: '#3b82f6',
+      secondary_color: '#60a5fa',
+      contact_email: 'contact@choo.org',
+      contact_phone: null,
+      settings: {},
+      membership_year_start_month: 1,
+      membership_year_end_month: 12,
+      renewal_enabled: true,
+      renewal_form_schema_id: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
 
-    loadOrganization()
+    setOrganization(staticOrg)
+    setLoading(false)
   }, [])
 
   return {
     organization,
     loading,
-    error
+    error: null
   }
 }
