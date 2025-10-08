@@ -46,49 +46,13 @@ export function LoginForm() {
     setLoading(false)
   }
 
-  if (tenantLoading) {
+  if (tenantLoading || !organization) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
           <CardContent className="p-6">
             <div className="flex items-center justify-center space-x-2 text-gray-600">
               <span>Loading...</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (!organization) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <AlertCircle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-            <CardTitle className="text-2xl">Organization Not Found</CardTitle>
-            <CardDescription>Please use your organization's unique login URL</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 text-sm text-gray-600">
-              <p>
-                Each organization has its own login page. Please use one of these methods:
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                <p className="font-medium text-blue-900">Option 1: Subdomain</p>
-                <code className="block bg-white p-2 rounded text-xs">
-                  https://yourorg.member.ringing.org.uk
-                </code>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                <p className="font-medium text-blue-900">Option 2: URL Parameter</p>
-                <code className="block bg-white p-2 rounded text-xs">
-                  {window.location.origin}?org=yourorg
-                </code>
-              </div>
-              <p className="text-xs text-gray-500 pt-2">
-                Contact your organization administrator if you don't have the correct URL.
-              </p>
             </div>
           </CardContent>
         </Card>
