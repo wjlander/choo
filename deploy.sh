@@ -102,20 +102,25 @@ update_system() {
 # Function to install Node.js
 install_nodejs() {
     print_info "Installing Node.js ${NODE_VERSION}..."
-    
+
     # Check if Node.js is already installed
     if command -v node &> /dev/null; then
         current_version=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
         if [[ "$current_version" -ge "$NODE_VERSION" ]]; then
             print_success "Node.js ${current_version} is already installed"
             return
+        else
+            print_warning "Older Node.js version ${current_version} detected, upgrading..."
+            # Remove old Node.js packages to avoid conflicts
+            apt remove -y nodejs libnode-dev libnode72 2>/dev/null || true
+            apt autoremove -y
         fi
     fi
-    
+
     # Install Node.js
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
     apt install -y nodejs
-    
+
     # Verify installation
     node_version=$(node -v)
     npm_version=$(npm -v)
